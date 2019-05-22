@@ -7,11 +7,14 @@
   "license": "MIT",
   "dependencies": {
     "browserify": "^16.2.3",
+    "gl-matrix": "^3.0.0",
     "html-minifier": "^4.0.0",
     "tsify": "^4.0.1",
+    "tslint": "^5.16.0",
     "typescript": "^3.4.5"
   },
   "scripts": {
-    "build": "node build.js"
+    "build": "node build.js",
+    "lint": "tslint -c tslint.json 'src/**/*.ts'"
   }
 }
