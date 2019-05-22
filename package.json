@@ -1,0 +1,17 @@
+{
+  "name": "webgl-maze",
+  "version": "1.0.0",
+  "description": "Pedagogical WebGL tech demo",
+  "repository": "https://github.com/as3richa/webgl-demo.git",
+  "author": "Adam Richardson (as3richa)",
+  "license": "MIT",
+  "dependencies": {
+    "browserify": "^16.2.3",
+    "html-minifier": "^4.0.0",
+    "tsify": "^4.0.1",
+    "typescript": "^3.4.5"
+  },
+  "scripts": {
+    "build": "node build.js"
+  }
+}
