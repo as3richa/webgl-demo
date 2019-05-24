@@ -43,15 +43,15 @@ window.addEventListener("load", () => {
   shader.bindVertices(vertexBuffer);
   shader.bindTextureCoordinates(textureCoordinateBuffer);
 
-  shader.setCamera([0, 1, 10], 0, 0);
-  shader.setLightPosition([0, 20, 20]);
+  shader.setCamera([0, -1, 10], 0, 0);
+  shader.setLightPosition([1, 1, 2]);
 
   const animationStartedAt = performance.now();
 
   const drawFrame = () => {
     gl.clear(gl.DEPTH_BUFFER_BIT);
     shader.setProjection(Math.PI / 6, canvasElement.width / canvasElement.height);
-    shader.setModelMatrix(mat4.fromYRotation(mat4.create(), 2 * Math.PI * (performance.now() - animationStartedAt) / 6000));
+    shader.setModelMatrix(mat4.fromYRotation(mat4.create(), 2 * Math.PI * (performance.now() - animationStartedAt) / 5000));
     gl.drawArrays(gl.TRIANGLES, 0, 36);
     requestAnimationFrame(drawFrame);
   };

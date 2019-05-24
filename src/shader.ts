@@ -1,10 +1,10 @@
 import { mat4, vec3 } from "gl-matrix";
 
 const VERTEX_SHADER_SOURCE = `
-  uniform mat4 proj;
-  uniform mat4 view;
-  uniform mat4 model;
-  uniform vec3 lightPosition;
+  uniform mat4 projMatrix;
+  uniform mat4 viewMatrix;
+  uniform mat4 modelMatrix;
+  uniform mat4 normalMatrix;
 
   attribute vec3 position;
   attribute vec3 normal;
@@ -15,9 +15,9 @@ const VERTEX_SHADER_SOURCE = `
   varying highp vec2 fragTextureCoord;
 
   void main() {
-    gl_Position = proj * view * model * vec4(position, 1.0);
-    fragWorldspacePosition = (model * vec4(position, 1.0)).xyz;
-    fragNormal = (model * vec4(normal, 1.0)).xyz; // FIXME
+    gl_Position = projMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+    fragWorldspacePosition = (modelMatrix * vec4(position, 1.0)).xyz;
+    fragNormal = (normalMatrix * vec4(normal, 1.0)).xyz;
     fragTextureCoord = textureCoord;
   }
 `;
@@ -25,6 +25,7 @@ const VERTEX_SHADER_SOURCE = `
 const FRAGMENT_SHADER_SOURCE = `
   precision highp float;
 
+  uniform vec3 cameraPosition;
   uniform vec3 lightPosition;
   uniform sampler2D textureId;
 
@@ -37,12 +38,16 @@ const FRAGMENT_SHADER_SOURCE = `
 
     vec3 baseColor = texture2D(textureId, fragTextureCoord).xyz;
 
-    float ambientStrength = 0.1;
+    float ambientStrength = 0.45;
 
     vec3 lightDirection = normalize(lightPosition - fragWorldspacePosition);
-    float diffuseStrength = max(dot(fragNormal, lightDirection), 0.0);
+    float diffuseStrength = 0.75 * max(dot(fragNormal, lightDirection), 0.0);
 
-    vec3 light = (ambientStrength + diffuseStrength) * lightColor;
+    vec3 viewDirection = normalize(cameraPosition - fragWorldspacePosition);
+    vec3 reflectedLightDirection = reflect(-lightDirection, fragNormal);
+    float specularStrength = 0.7 * pow(max(dot(viewDirection, reflectedLightDirection), 0.0), 32.0);
+
+    vec3 light = (ambientStrength + diffuseStrength + specularStrength) * lightColor;
 
     gl_FragColor = vec4(light * baseColor, 1.0);
   }
@@ -54,9 +59,11 @@ export class Shader {
   private positionAttr: number;
   private normalAttr: number;
   private textureCoordAttr: number;
-  private projUniform: WebGLUniformLocation;
-  private viewUniform: WebGLUniformLocation;
-  private modelUniform: WebGLUniformLocation;
+  private projMatrixUniform: WebGLUniformLocation;
+  private viewMatrixUniform: WebGLUniformLocation;
+  private modelMatrixUniform: WebGLUniformLocation;
+  private normalMatrixUniform: WebGLUniformLocation;
+  private cameraPositionUniform: WebGLUniformLocation;
   private lightPositionUniform: WebGLUniformLocation;
   private textureIdUniform: WebGLUniformLocation;
 
@@ -122,9 +129,11 @@ export class Shader {
       return location;
     };
 
-    this.projUniform = getUniformLocation("proj");
-    this.viewUniform = getUniformLocation("view");
-    this.modelUniform = getUniformLocation("model");
+    this.projMatrixUniform = getUniformLocation("projMatrix");
+    this.viewMatrixUniform = getUniformLocation("viewMatrix");
+    this.modelMatrixUniform = getUniformLocation("modelMatrix");
+    this.normalMatrixUniform = getUniformLocation("normalMatrix");
+    this.cameraPositionUniform = getUniformLocation("cameraPosition");
     this.lightPositionUniform = getUniformLocation("lightPosition");
     this.textureIdUniform = getUniformLocation("textureId");
   }
@@ -136,10 +145,12 @@ export class Shader {
   public setProjection(verticalFieldOfView: number, aspectRatio: number) {
     const projMatrix = mat4.create();
     mat4.perspective(projMatrix, verticalFieldOfView, aspectRatio, 1, 1000);
-    this.gl.uniformMatrix4fv(this.projUniform, false, projMatrix);
+    this.gl.uniformMatrix4fv(this.projMatrixUniform, false, projMatrix);
   }
 
   public setCamera(position: vec3, pitch: number, yaw: number) {
+    this.gl.uniform3fv(this.cameraPositionUniform, position);
+
     const negatedPosition = vec3.negate(vec3.create(), position);
     const translationMatrix = mat4.fromTranslation(mat4.create(), negatedPosition);
 
@@ -150,11 +161,15 @@ export class Shader {
     mat4.mul(viewMatrix, viewMatrix, yawMatrix);
     mat4.mul(viewMatrix, viewMatrix, translationMatrix);
 
-    this.gl.uniformMatrix4fv(this.viewUniform, false, viewMatrix);
+    this.gl.uniformMatrix4fv(this.viewMatrixUniform, false, viewMatrix);
   }
 
   public setModelMatrix(modelMatrix: mat4) {
-    this.gl.uniformMatrix4fv(this.modelUniform, false, modelMatrix);
+    this.gl.uniformMatrix4fv(this.modelMatrixUniform, false, modelMatrix);
+
+    const normalMatrix = mat4.invert(mat4.create(), modelMatrix);
+    mat4.transpose(normalMatrix, normalMatrix);
+    this.gl.uniformMatrix4fv(this.normalMatrixUniform, false, normalMatrix);
   }
 
   public setLightPosition(lightPosition: vec3) {
