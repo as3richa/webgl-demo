@@ -1,6 +1,8 @@
 import { mat4, vec3 } from "gl-matrix";
 
 import { Shader } from "./shader";
+import { createWallTexture } from "./wall-texture";
+import { VERTICES, TEXTURE_COORDINATES} from "./cube";
 
 window.addEventListener("load", () => {
   const canvasElement = document.createElement("canvas");
@@ -13,6 +15,8 @@ window.addEventListener("load", () => {
     throw new Error("canvas.getContext('webgl') returned null; WebGL isn't supported by this browser");
   }
 
+  gl.enable(gl.DEPTH_TEST);
+
   const resizeCanvasElement = () => {
     canvasElement.width = window.innerWidth;
     canvasElement.height = window.innerHeight;
@@ -21,62 +25,34 @@ window.addEventListener("load", () => {
   resizeCanvasElement();
   window.addEventListener("resize", resizeCanvasElement);
 
+  const vertexBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, VERTICES, gl.STATIC_DRAW);
+
+  const textureCoordinateBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordinateBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, TEXTURE_COORDINATES, gl.STATIC_DRAW);
+
+  const wallTexture = createWallTexture(gl);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D, wallTexture);
+
   const shader = new Shader(gl);
   shader.use();
+  shader.setTextureId(0);
+  shader.bindVertices(vertexBuffer);
+  shader.bindTextureCoordinates(textureCoordinateBuffer);
 
-  const vertexBuffer = gl.createBuffer();
-
-  const cubeVertices = Float32Array.from([
-    -0.5, -0.5, -0.5,
-    0.5, -0.5, -0.5,
-    -0.5, 0.5, -0.5,
-    0.5, 0.5, -0.5,
-    -0.5, -0.5, 0.5,
-    0.5, -0.5, 0.5,
-    -0.5, 0.5, 0.5,
-    0.5, 0.5, 0.5,
-  ]);
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, cubeVertices, gl.STATIC_DRAW);
-
-  const indexBuffer = gl.createBuffer();
-
-  const cubeIndices = Uint8Array.from([
-    0, 1,
-    0, 2,
-    0, 4,
-    1, 3,
-    1, 5,
-    2, 3,
-    2, 6,
-    3, 7,
-    4, 5,
-    4, 6,
-    5, 7,
-    6, 7,
-  ]);
-
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, cubeIndices, gl.STATIC_DRAW);
-
-  shader.setColor(0, 0, 0);
-  shader.bindPosition();
+  shader.setCamera([0, 1, 10], 0, 0);
+  shader.setLightPosition([0, 20, 20]);
 
   const animationStartedAt = performance.now();
 
   const drawFrame = () => {
-    const deltaTime = performance.now() - animationStartedAt;
-    const modelYRotation = 2 * Math.PI * deltaTime / 6000;
-    const cameraPitch = 0.1 * Math.sin(2 * Math.PI * deltaTime / 5000);
-    const cameraYaw = 0.1 * Math.cos(2 * Math.PI * deltaTime / 10000);
-
+    gl.clear(gl.DEPTH_BUFFER_BIT);
     shader.setProjection(Math.PI / 6, canvasElement.width / canvasElement.height);
-    shader.setCamera(vec3.fromValues(0, 0, 10), cameraPitch, cameraYaw);
-    shader.setModelMatrix(mat4.fromYRotation(mat4.create(), modelYRotation));
-
-    gl.drawElements(gl.LINES, cubeIndices.length, gl.UNSIGNED_BYTE, 0);
-
+    shader.setModelMatrix(mat4.fromYRotation(mat4.create(), 2 * Math.PI * (performance.now() - animationStartedAt) / 6000));
+    gl.drawArrays(gl.TRIANGLES, 0, 36);
     requestAnimationFrame(drawFrame);
   };
   drawFrame();

@@ -4,20 +4,47 @@ const VERTEX_SHADER_SOURCE = `
   uniform mat4 proj;
   uniform mat4 view;
   uniform mat4 model;
+  uniform vec3 lightPosition;
+
   attribute vec3 position;
+  attribute vec3 normal;
+  attribute vec2 textureCoord;
+
+  varying highp vec3 fragWorldspacePosition;
+  varying highp vec3 fragNormal;
+  varying highp vec2 fragTextureCoord;
 
   void main() {
     gl_Position = proj * view * model * vec4(position, 1.0);
+    fragWorldspacePosition = (model * vec4(position, 1.0)).xyz;
+    fragNormal = (model * vec4(normal, 1.0)).xyz; // FIXME
+    fragTextureCoord = textureCoord;
   }
 `;
 
 const FRAGMENT_SHADER_SOURCE = `
   precision highp float;
 
-  uniform vec3 color;
+  uniform vec3 lightPosition;
+  uniform sampler2D textureId;
+
+  varying highp vec3 fragWorldspacePosition;
+  varying highp vec3 fragNormal;
+  varying highp vec2 fragTextureCoord;
 
   void main() {
-    gl_FragColor = vec4(color, 1.0);
+    vec3 lightColor = vec3(1, 1, 0.95);
+
+    vec3 baseColor = texture2D(textureId, fragTextureCoord).xyz;
+
+    float ambientStrength = 0.1;
+
+    vec3 lightDirection = normalize(lightPosition - fragWorldspacePosition);
+    float diffuseStrength = max(dot(fragNormal, lightDirection), 0.0);
+
+    vec3 light = (ambientStrength + diffuseStrength) * lightColor;
+
+    gl_FragColor = vec4(light * baseColor, 1.0);
   }
 `;
 
@@ -25,10 +52,13 @@ export class Shader {
   private gl: WebGLRenderingContext;
   private program: WebGLProgram;
   private positionAttr: number;
+  private normalAttr: number;
+  private textureCoordAttr: number;
   private projUniform: WebGLUniformLocation;
   private viewUniform: WebGLUniformLocation;
   private modelUniform: WebGLUniformLocation;
-  private colorUniform: WebGLUniformLocation;
+  private lightPositionUniform: WebGLUniformLocation;
+  private textureIdUniform: WebGLUniformLocation;
 
   constructor(gl: WebGLRenderingContext) {
     this.gl = gl;
@@ -68,7 +98,17 @@ export class Shader {
       throw new ShaderError("Shader program failed to validate", null, gl.getProgramInfoLog(program));
     }
 
-    this.positionAttr = gl.getAttribLocation(program, "position");
+    const getAttrLocation = (name: string) => {
+      const location = gl.getAttribLocation(program, name);
+      if (location === -1) {
+        throw new ShaderError(`Couldn't find attribute location for '${name}'`);
+      }
+      return location;
+    };
+
+    this.positionAttr = getAttrLocation("position");
+    this.normalAttr = getAttrLocation("normal");
+    this.textureCoordAttr = getAttrLocation("textureCoord");
 
     if (this.positionAttr === -1) {
       throw new ShaderError("Couldn't find attribute location for 'position'");
@@ -85,7 +125,8 @@ export class Shader {
     this.projUniform = getUniformLocation("proj");
     this.viewUniform = getUniformLocation("view");
     this.modelUniform = getUniformLocation("model");
-    this.colorUniform = getUniformLocation("color");
+    this.lightPositionUniform = getUniformLocation("lightPosition");
+    this.textureIdUniform = getUniformLocation("textureId");
   }
 
   public use() {
@@ -116,13 +157,28 @@ export class Shader {
     this.gl.uniformMatrix4fv(this.modelUniform, false, modelMatrix);
   }
 
-  public setColor(red: number, green: number, blue: number) {
-    this.gl.uniform3f(this.colorUniform, red, green, blue);
+  public setLightPosition(lightPosition: vec3) {
+    this.gl.uniform3fv(this.lightPositionUniform, lightPosition);
   }
 
-  public bindPosition() {
+  public setTextureId(textureId: number) {
+    this.gl.uniform1i(this.textureIdUniform, textureId);
+  }
+
+  public bindVertices(buffer: WebGLBuffer) {
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+
     this.gl.enableVertexAttribArray(this.positionAttr);
-    this.gl.vertexAttribPointer(this.positionAttr, 3, this.gl.FLOAT, false, 0, 0);
+    this.gl.vertexAttribPointer(this.positionAttr, 3, this.gl.FLOAT, false, 6 * 4, 0);
+
+    this.gl.enableVertexAttribArray(this.normalAttr);
+    this.gl.vertexAttribPointer(this.normalAttr, 3, this.gl.FLOAT, false, 6 * 4, 3 * 4);
+  }
+
+  public bindTextureCoordinates(buffer: WebGLBuffer) {
+    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
+    this.gl.enableVertexAttribArray(this.textureCoordAttr);
+    this.gl.vertexAttribPointer(this.textureCoordAttr, 2, this.gl.FLOAT, false, 0, 0);
   }
 }
 
