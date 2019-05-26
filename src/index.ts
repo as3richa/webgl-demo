@@ -2,7 +2,7 @@ import { mat4, vec3 } from "gl-matrix";
 
 import { Shader } from "./shader";
 import { createWallTexture } from "./wall-texture";
-import { VERTICES, TEXTURE_COORDINATES} from "./cube";
+import { VERTICES } from "./cube";
 
 window.addEventListener("load", () => {
   const canvasElement = document.createElement("canvas");
@@ -29,10 +29,6 @@ window.addEventListener("load", () => {
   gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, VERTICES, gl.STATIC_DRAW);
 
-  const textureCoordinateBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordinateBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, TEXTURE_COORDINATES, gl.STATIC_DRAW);
-
   const wallTexture = createWallTexture(gl);
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, wallTexture);
@@ -41,7 +37,6 @@ window.addEventListener("load", () => {
   shader.use();
   shader.setTextureId(0);
   shader.bindVertices(vertexBuffer);
-  shader.bindTextureCoordinates(textureCoordinateBuffer);
 
   shader.setCamera([0, -1, 10], 0, 0);
   shader.setLightPosition([1, 1, 2]);

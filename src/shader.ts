@@ -110,6 +110,7 @@ export class Shader {
       if (location === -1) {
         throw new ShaderError(`Couldn't find attribute location for '${name}'`);
       }
+      gl.enableVertexAttribArray(location);
       return location;
     };
 
@@ -149,18 +150,13 @@ export class Shader {
   }
 
   public setCamera(position: vec3, pitch: number, yaw: number) {
-    this.gl.uniform3fv(this.cameraPositionUniform, position);
-
     const negatedPosition = vec3.negate(vec3.create(), position);
-    const translationMatrix = mat4.fromTranslation(mat4.create(), negatedPosition);
 
-    const pitchMatrix = mat4.fromXRotation(mat4.create(), -1 * pitch);
-    const yawMatrix = mat4.fromYRotation(mat4.create(), yaw);
+    const viewMatrix = mat4.fromXRotation(mat4.create(), -1 * pitch);
+    mat4.rotateY(viewMatrix, viewMatrix, yaw);
+    mat4.translate(viewMatrix, viewMatrix, negatedPosition);
 
-    const viewMatrix = pitchMatrix;
-    mat4.mul(viewMatrix, viewMatrix, yawMatrix);
-    mat4.mul(viewMatrix, viewMatrix, translationMatrix);
-
+    this.gl.uniform3fv(this.cameraPositionUniform, position);
     this.gl.uniformMatrix4fv(this.viewMatrixUniform, false, viewMatrix);
   }
 
@@ -182,18 +178,9 @@ export class Shader {
 
   public bindVertices(buffer: WebGLBuffer) {
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-
-    this.gl.enableVertexAttribArray(this.positionAttr);
-    this.gl.vertexAttribPointer(this.positionAttr, 3, this.gl.FLOAT, false, 6 * 4, 0);
-
-    this.gl.enableVertexAttribArray(this.normalAttr);
-    this.gl.vertexAttribPointer(this.normalAttr, 3, this.gl.FLOAT, false, 6 * 4, 3 * 4);
-  }
-
-  public bindTextureCoordinates(buffer: WebGLBuffer) {
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-    this.gl.enableVertexAttribArray(this.textureCoordAttr);
-    this.gl.vertexAttribPointer(this.textureCoordAttr, 2, this.gl.FLOAT, false, 0, 0);
+    this.gl.vertexAttribPointer(this.positionAttr, 3, this.gl.FLOAT, false, 8 * 4, 0);
+    this.gl.vertexAttribPointer(this.normalAttr, 3, this.gl.FLOAT, false, 8 * 4, 3 * 4);
+    this.gl.vertexAttribPointer(this.textureCoordAttr, 2, this.gl.FLOAT, false, 8 * 4, 6 * 4)
   }
 }
 

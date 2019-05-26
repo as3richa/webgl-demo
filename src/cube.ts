@@ -36,6 +36,13 @@ const CUBE_FACES = [
   },
 ];
 
+const FACE_VERTEX_TEXTURE_COORDINATES = [
+  [0, 0],
+  [0, 1],
+  [1, 0],
+  [1, 1],
+];
+
 let glVertices = [];
 
 for(let face of CUBE_FACES) {
@@ -43,14 +50,8 @@ for(let face of CUBE_FACES) {
     const index = face.vertices[i];
     glVertices = glVertices.concat(CUBE_VERTICES[index].map(component => component - 0.5));
     glVertices = glVertices.concat(face.normal);
+    glVertices = glVertices.concat(FACE_VERTEX_TEXTURE_COORDINATES[i]);
   }
 }
 
-let textureCoordinates = [];
-
-for(let i = 0; i < 6; i ++) {
-  textureCoordinates = textureCoordinates.concat([0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1]);
-}
-
 export const VERTICES = Float32Array.from(glVertices);
-export const TEXTURE_COORDINATES = Float32Array.from(textureCoordinates);
