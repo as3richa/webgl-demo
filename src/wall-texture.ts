@@ -1,4 +1,4 @@
-export function createWallTexture(gl: WebGLRenderingContext) {
+export function createWallTexture() {
   const canvasElement = document.createElement("canvas");
 
   canvasElement.width = 32;
@@ -40,12 +40,5 @@ export function createWallTexture(gl: WebGLRenderingContext) {
     y += height + 1;
   }
 
-  const imageData = ctx.getImageData(0, 0, canvasElement.width, canvasElement.height);
-
-  const texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, imageData);
-  gl.generateMipmap(gl.TEXTURE_2D);
-
-  return texture;
+  return ctx.getImageData(0, 0, canvasElement.width, canvasElement.height);
 }

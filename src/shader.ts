@@ -1,7 +1,7 @@
 import { mat4, vec3 } from "gl-matrix";
 
 const VERTEX_SHADER_SOURCE = `
-  uniform mat4 projMatrix;
+  uniform mat4 projectionMatrix;
   uniform mat4 viewMatrix;
   uniform mat4 modelMatrix;
   uniform mat4 normalMatrix;
@@ -15,7 +15,7 @@ const VERTEX_SHADER_SOURCE = `
   varying highp vec2 fragTextureCoord;
 
   void main() {
-    gl_Position = projMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
     fragWorldspacePosition = (modelMatrix * vec4(position, 1.0)).xyz;
     fragNormal = (normalMatrix * vec4(normal, 1.0)).xyz;
     fragTextureCoord = textureCoord;
@@ -27,6 +27,7 @@ const FRAGMENT_SHADER_SOURCE = `
 
   uniform vec3 cameraPosition;
   uniform vec3 lightPosition;
+  uniform float shininess;
   uniform sampler2D textureId;
 
   varying highp vec3 fragWorldspacePosition;
@@ -34,37 +35,42 @@ const FRAGMENT_SHADER_SOURCE = `
   varying highp vec2 fragTextureCoord;
 
   void main() {
+    vec3 ambientColor = texture2D(textureId, fragTextureCoord).xyz;
     vec3 lightColor = vec3(1, 1, 0.95);
-
-    vec3 baseColor = texture2D(textureId, fragTextureCoord).xyz;
-
-    float ambientStrength = 0.45;
-
     vec3 lightDirection = normalize(lightPosition - fragWorldspacePosition);
-    float diffuseStrength = 0.75 * max(dot(fragNormal, lightDirection), 0.0);
-
     vec3 viewDirection = normalize(cameraPosition - fragWorldspacePosition);
     vec3 reflectedLightDirection = reflect(-lightDirection, fragNormal);
-    float specularStrength = 0.7 * pow(max(dot(viewDirection, reflectedLightDirection), 0.0), 32.0);
 
-    vec3 light = (ambientStrength + diffuseStrength + specularStrength) * lightColor;
+    float ambientStrength = 0.2;
+    float diffuseStrength = 0.4 * max(dot(fragNormal, lightDirection), 0.0);
+    float specularStrength = 0.7 * pow(max(dot(viewDirection, reflectedLightDirection), 0.0), shininess);
+    vec3 color = (ambientStrength + diffuseStrength + specularStrength) * lightColor * ambientColor;
 
-    gl_FragColor = vec4(light * baseColor, 1.0);
+    gl_FragColor = vec4(color, 1.0);
   }
 `;
 
+const SIZEOF_FLOAT = 4;
+
 export class Shader {
   private gl: WebGLRenderingContext;
+
   private program: WebGLProgram;
+
   private positionAttr: number;
   private normalAttr: number;
   private textureCoordAttr: number;
-  private projMatrixUniform: WebGLUniformLocation;
+
+  private projectionMatrixUniform: WebGLUniformLocation;
   private viewMatrixUniform: WebGLUniformLocation;
   private modelMatrixUniform: WebGLUniformLocation;
   private normalMatrixUniform: WebGLUniformLocation;
+
   private cameraPositionUniform: WebGLUniformLocation;
   private lightPositionUniform: WebGLUniformLocation;
+
+  private shininessUniform: WebGLUniformLocation;
+
   private textureIdUniform: WebGLUniformLocation;
 
   constructor(gl: WebGLRenderingContext) {
@@ -78,6 +84,7 @@ export class Shader {
       const logs = gl.getShaderInfoLog(vertexShader);
       throw new ShaderError("Vertex shader failed to compile", VERTEX_SHADER_SOURCE, logs);
     }
+
     const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(fragmentShader, FRAGMENT_SHADER_SOURCE);
     gl.compileShader(fragmentShader);
@@ -130,12 +137,13 @@ export class Shader {
       return location;
     };
 
-    this.projMatrixUniform = getUniformLocation("projMatrix");
+    this.projectionMatrixUniform = getUniformLocation("projectionMatrix");
     this.viewMatrixUniform = getUniformLocation("viewMatrix");
     this.modelMatrixUniform = getUniformLocation("modelMatrix");
     this.normalMatrixUniform = getUniformLocation("normalMatrix");
     this.cameraPositionUniform = getUniformLocation("cameraPosition");
     this.lightPositionUniform = getUniformLocation("lightPosition");
+    this.shininessUniform = getUniformLocation("shininess")
     this.textureIdUniform = getUniformLocation("textureId");
   }
 
@@ -143,33 +151,32 @@ export class Shader {
     this.gl.useProgram(this.program);
   }
 
-  public setProjection(verticalFieldOfView: number, aspectRatio: number) {
-    const projMatrix = mat4.create();
-    mat4.perspective(projMatrix, verticalFieldOfView, aspectRatio, 1, 1000);
-    this.gl.uniformMatrix4fv(this.projMatrixUniform, false, projMatrix);
+  public setProjectionMatrix(projectionMatrix: mat4) {
+    this.gl.uniformMatrix4fv(this.projectionMatrixUniform, false, projectionMatrix);
   }
 
-  public setCamera(position: vec3, pitch: number, yaw: number) {
-    const negatedPosition = vec3.negate(vec3.create(), position);
-
-    const viewMatrix = mat4.fromXRotation(mat4.create(), -1 * pitch);
-    mat4.rotateY(viewMatrix, viewMatrix, yaw);
-    mat4.translate(viewMatrix, viewMatrix, negatedPosition);
-
-    this.gl.uniform3fv(this.cameraPositionUniform, position);
+  public setViewMatrix(viewMatrix: mat4) {
     this.gl.uniformMatrix4fv(this.viewMatrixUniform, false, viewMatrix);
   }
 
   public setModelMatrix(modelMatrix: mat4) {
     this.gl.uniformMatrix4fv(this.modelMatrixUniform, false, modelMatrix);
+  }
 
-    const normalMatrix = mat4.invert(mat4.create(), modelMatrix);
-    mat4.transpose(normalMatrix, normalMatrix);
+  public setNormalMatrix(normalMatrix: mat4) {
     this.gl.uniformMatrix4fv(this.normalMatrixUniform, false, normalMatrix);
+  }
+
+  public setCameraPosition(cameraPosition: vec3) {
+    this.gl.uniform3fv(this.cameraPositionUniform, cameraPosition);
   }
 
   public setLightPosition(lightPosition: vec3) {
     this.gl.uniform3fv(this.lightPositionUniform, lightPosition);
+  }
+
+  public setShininess(shininess: number) {
+    this.gl.uniform1f(this.shininessUniform, shininess);
   }
 
   public setTextureId(textureId: number) {
@@ -178,9 +185,13 @@ export class Shader {
 
   public bindVertices(buffer: WebGLBuffer) {
     this.gl.bindBuffer(this.gl.ARRAY_BUFFER, buffer);
-    this.gl.vertexAttribPointer(this.positionAttr, 3, this.gl.FLOAT, false, 8 * 4, 0);
-    this.gl.vertexAttribPointer(this.normalAttr, 3, this.gl.FLOAT, false, 8 * 4, 3 * 4);
-    this.gl.vertexAttribPointer(this.textureCoordAttr, 2, this.gl.FLOAT, false, 8 * 4, 6 * 4)
+    this.gl.vertexAttribPointer(this.positionAttr, 3, this.gl.FLOAT, false, SIZEOF_FLOAT * 8, 0);
+    this.gl.vertexAttribPointer(this.normalAttr, 3, this.gl.FLOAT, false, SIZEOF_FLOAT * 8, SIZEOF_FLOAT * 3);
+    this.gl.vertexAttribPointer(this.textureCoordAttr, 2, this.gl.FLOAT, false, SIZEOF_FLOAT * 8, SIZEOF_FLOAT * 6);
+  }
+
+  public bindTexture(texture: WebGLTexture) {
+    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
   }
 }
 
