@@ -1,8 +1,8 @@
-import { mat4, vec3, quat } from "gl-matrix";
+import { mat4, quat, vec3 } from "gl-matrix";
 
-import { Scene } from './scene';
-import { createWallTexture } from "./wall-texture";
 import { VERTICES } from "./cube";
+import { Scene } from "./scene";
+import { createWallTexture } from "./wall-texture";
 
 window.addEventListener("load", () => {
   const canvasElement = document.createElement("canvas");
@@ -29,40 +29,51 @@ window.addEventListener("load", () => {
 
   const cubeMesh = scene.createMesh(VERTICES);
   const cubeTexture = scene.createTexture(createWallTexture());
-  const cubeModel = scene.createModel(cubeMesh, cubeTexture, 32);
-  quat.fromEuler(cubeModel.rotation, 45, 45, 45);
-  scene.addModel(cubeModel);
 
-  let lightTexture;
+  for(let i = 0; i < 4; i ++) {
+    for(let j = 0; j < 4; j ++) {
+      const cubeModel = scene.createModel(cubeMesh, cubeTexture, 32);
+      vec3.copy(cubeModel.position, [2 * i - 3, 0, 2 * j - 3]);
+      scene.addModel(cubeModel);
+    }
+  }
+
+  let solidWhiteTexture;
 
   {
     const canvasElement = document.createElement("canvas");
     canvasElement.width = 1;
     canvasElement.height = 1;
     const ctx = canvasElement.getContext("2d");
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, 1, 1);
     const data = ctx.getImageData(0, 0, 1, 1);
-    lightTexture = scene.createTexture(data);
+    solidWhiteTexture = scene.createTexture(data);
   }
 
-  const lightModel = scene.createModel(cubeMesh, lightTexture, 1);
-  lightModel.scale = 0.2;
-  scene.addModel(lightModel);
+  const floorVertices = new Float32Array([
+    -0.5, 0, -0.5, 0, 1, 0, 0, 0,
+    0.5, 0, -0.5, 0, 1, 0, 1, 0,
+    -0.5, 0, 0.5, 0, 1, 0, 0, 1,
+    0.5, 0, -0.5, 0, 1, 0, 1, 0,
+    -0.5, 0, 0.5, 0, 1, 0, 0, 1,
+    0.5, 0, 0.5, 0, 1, 0, 1, 1,
+  ]);
 
-  scene.setCamera([0, 0, 10], 0, 0);
+  const floorMesh = scene.createMesh(floorVertices);
+  const floorModel = scene.createModel(floorMesh, solidWhiteTexture, 64);
+  vec3.copy(floorModel.position, [0, -5, 0]);
+  floorModel.scale = 100;
+  scene.addModel(floorModel);
+
+  scene.setCamera([5, 5, 5], -Math.PI / 3, -Math.PI / 3);
+  scene.setLightPosition([0, 5, 1]);
 
   const animationStartedAt = performance.now();
 
   const drawFrame = () => {
-    const lightPosition = vec3.fromValues(0, 0, 3);
-    vec3.rotateY(lightPosition, lightPosition, [0, 0, 0], (animationStartedAt - performance.now()) / 5000 * 2 * Math.PI);
-
-    lightModel.position = lightPosition;
-
-    scene.setLightPosition(lightPosition);
     scene.setProjection(Math.PI / 6, canvasElement.width / canvasElement.height);
-    scene.render()
+    scene.render();
     requestAnimationFrame(drawFrame);
   };
   drawFrame();

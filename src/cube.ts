@@ -45,10 +45,10 @@ const FACE_VERTEX_TEXTURE_COORDINATES = [
 
 let glVertices = [];
 
-for(let face of CUBE_FACES) {
-  for(let i of [0, 1, 2, 1, 2, 3]) {
+for (const face of CUBE_FACES) {
+  for (const i of [0, 1, 2, 1, 2, 3]) {
     const index = face.vertices[i];
-    glVertices = glVertices.concat(CUBE_VERTICES[index].map(component => component - 0.5));
+    glVertices = glVertices.concat(CUBE_VERTICES[index].map((component) => component - 0.5));
     glVertices = glVertices.concat(face.normal);
     glVertices = glVertices.concat(FACE_VERTEX_TEXTURE_COORDINATES[i]);
   }
