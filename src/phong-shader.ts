@@ -50,8 +50,16 @@ const FRAGMENT_SHADER_SOURCE = `
 
     vec3 projectedLightspacePosition = 0.5 * (lightspacePosition.xyz / lightspacePosition.w) + 0.5;
     float depth = projectedLightspacePosition.z;
-    float closestDepthToLight = texture2D(shadowMapId, projectedLightspacePosition.xy).r;
-    float fragIsLit = (depth <= closestDepthToLight + 1e-3)? 1.0 : 0.0;
+    float fragIsLit = 0.0;
+    float shadowMapTexelSize = 1.0 / 1024.0; // FIXME: make this a uniform
+    float bias = max(0.05 * (1.0 - dot(transformedNormal, lightDirection)), 0.005);
+    for(int x = -1; x <= 1; x ++) {
+      for(int y = -1; y <= 1; y ++) {
+        float closestDepthToLight = texture2D(shadowMapId, projectedLightspacePosition.xy + vec2(x, y) * shadowMapTexelSize).r;
+        fragIsLit += (depth > 1.0 || depth <= closestDepthToLight + bias) ? 1.0 : 0.0;
+      }
+    }
+    fragIsLit /= 9.0;
 
     float ambientStrength = 0.2;
     float diffuseStrength = fragIsLit * 0.5 * max(dot(transformedNormal, lightDirection), 0.0);

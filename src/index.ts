@@ -53,8 +53,8 @@ window.addEventListener("load", () => {
 
   const floorVertices = new Float32Array([
     -0.5, 0, -0.5, 0, 1, 0, 0, 0,
-    0.5, 0, -0.5, 0, 1, 0, 1, 0,
     -0.5, 0, 0.5, 0, 1, 0, 0, 1,
+    0.5, 0, -0.5, 0, 1, 0, 1, 0,
     0.5, 0, -0.5, 0, 1, 0, 1, 0,
     -0.5, 0, 0.5, 0, 1, 0, 0, 1,
     0.5, 0, 0.5, 0, 1, 0, 1, 1,
@@ -66,7 +66,7 @@ window.addEventListener("load", () => {
   floorModel.scale = 100;
   scene.addModel(floorModel);
 
-  scene.setCamera([5, 5, 5], -Math.PI / 3, -Math.PI / 3);
+  scene.setCamera([3, 10, 3], -Math.PI / 2, -Math.PI / 3);
   scene.setLightPosition([0, 5, 1]);
 
   const animationStartedAt = performance.now();

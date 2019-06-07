@@ -3,8 +3,7 @@ import { mat4, quat, vec3 } from "gl-matrix";
 import { PhongShader } from "./phong-shader";
 import { DepthMapShader } from "./depth-map-shader";
 
-const DEPTH_MAP_WIDTH = 1024;
-const DEPTH_MAP_HEIGHT = 1024;
+const DEPTH_MAP_SIZE = 1600;
 const LIGHT_PROJECTION_MATRIX = mat4.perspective(mat4.create(), Math.PI / 2, 1, 1, 100);
 
 const ORIGIN = vec3.create();
@@ -48,6 +47,7 @@ export class Scene {
     this.depthMapTexture = gl.createTexture();
 
     gl.enable(gl.DEPTH_TEST);
+    gl.enable(gl.CULL_FACE);
     gl.clearColor(0, 0, 0, 1);
 
     if (gl.getExtension("WEBGL_depth_texture") === null) {
@@ -55,9 +55,9 @@ export class Scene {
     }
 
     gl.bindTexture(gl.TEXTURE_2D, this.depthMapTexture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, DEPTH_MAP_WIDTH, DEPTH_MAP_HEIGHT, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, DEPTH_MAP_SIZE, DEPTH_MAP_SIZE, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
@@ -146,7 +146,8 @@ export class Scene {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.depthMapFrameBuffer);
     gl.clear(gl.DEPTH_BUFFER_BIT);
-    gl.viewport(0, 0, DEPTH_MAP_WIDTH, DEPTH_MAP_HEIGHT);
+    gl.viewport(0, 0, DEPTH_MAP_SIZE, DEPTH_MAP_SIZE);
+    gl.cullFace(gl.FRONT);
 
     depthMapShader.use();
     depthMapShader.setLightspaceMatrix(lightspaceMatrix);
@@ -160,6 +161,7 @@ export class Scene {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.viewport(0, 0, this.viewportWidth, this.viewportHeight);
+    gl.cullFace(gl.BACK);
 
     phongShader.use();
     phongShader.setTextureId(0);
